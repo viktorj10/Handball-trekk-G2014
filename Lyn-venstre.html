@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Håndballtrekk – HB drar forsvaret, MB kommer bak i bue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1626;
+    --panel:#182137;
+    --panel-2:#1E2A47;
+    --accent:#F2A65A;
+    --muted:#93A0BD;
+    --text:#EAEEF7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(circle at 30% -10%, #1B2846 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:28px 16px 48px;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{max-width:1100px; width:100%;}
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    letter-spacing:.02em;
+    font-size:clamp(22px,3vw,32px);
+    margin:0 0 22px;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) 300px;
+    gap:22px;
+  }
+  @media (max-width:860px){ .layout{grid-template-columns:1fr;} }
+
+  .court-card{
+    background:var(--panel);
+    border-radius:18px;
+    padding:16px 16px 14px;
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.6);
+    border:1px solid #29365A;
+  }
+  canvas{
+    width:100%;
+    height:auto;
+    display:block;
+    border-radius:12px;
+  }
+
+  .phase-bar{
+    margin-top:14px;
+    background:var(--panel-2);
+    border-radius:10px;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-height:26px;
+  }
+  .phase-dot{width:8px;height:8px;border-radius:50%;background:var(--accent); flex:0 0 auto;}
+  .phase-text{font-size:14.5px; font-weight:500; color:var(--text);}
+  .phase-time{margin-left:auto; font-family:'Oswald',sans-serif; font-size:13px; color:var(--muted); flex:0 0 auto;}
+
+  .controls{
+    margin-top:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    letter-spacing:.02em;
+    font-size:13.5px;
+    border:none;
+    border-radius:9px;
+    padding:10px 16px;
+    cursor:pointer;
+    transition:transform .1s ease, filter .15s ease;
+  }
+  button:active{transform:scale(.96);}
+  .btn-primary{background:var(--accent); color:#241605;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-secondary{background:#2A3757; color:var(--text);}
+  .btn-secondary:hover{filter:brightness(1.15);}
+  .speed{
+    margin-left:auto;
+    display:flex; align-items:center; gap:8px;
+    color:var(--muted); font-size:12.5px;
+  }
+  select{
+    background:#2A3757; color:var(--text); border:none; border-radius:7px;
+    padding:6px 8px; font-family:'Inter',sans-serif; font-size:12.5px;
+  }
+
+  .side{
+    background:var(--panel);
+    border-radius:18px;
+    padding:18px 18px 16px;
+    border:1px solid #29365A;
+    height:fit-content;
+  }
+  .side h2{
+    font-family:'Oswald',sans-serif;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--accent);
+    margin:0 0 10px;
+  }
+  .legend{list-style:none; margin:0 0 18px; padding:0; font-size:13px; line-height:1.7; color:var(--text);}
+  .legend b{color:var(--accent); font-family:'Oswald',sans-serif;}
+  .swatch{display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:7px; vertical-align:middle; border:1px solid #4A5A82;}
+
+  .steps{list-style:none; margin:0; padding:0; counter-reset:step;}
+  .steps li{
+    counter-increment:step;
+    font-size:13px;
+    line-height:1.5;
+    padding:8px 0 8px 30px;
+    position:relative;
+    color:var(--muted);
+    border-bottom:1px solid #26324F;
+    transition:color .2s ease;
+  }
+  .steps li:last-child{border-bottom:none;}
+  .steps li::before{
+    content:counter(step);
+    position:absolute; left:0; top:8px;
+    width:20px; height:20px;
+    border-radius:50%;
+    background:#2A3757;
+    color:var(--muted);
+    font-family:'Oswald',sans-serif;
+    font-size:11.5px;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .2s ease, color .2s ease;
+  }
+  .steps li.active{color:var(--text); font-weight:500;}
+  .steps li.active::before{background:var(--accent); color:#241605;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lyn venstre</h1>
+
+  <div class="layout">
+    <div class="court-card">
+      <canvas id="court" width="880" height="620"></canvas>
+
+      <div class="phase-bar">
+        <span class="phase-dot"></span>
+        <span class="phase-text" id="phaseText">Klar til å starte trekket</span>
+        <span class="phase-time" id="phaseTime">0.0s</span>
+      </div>
+
+      <div class="controls">
+        <button class="btn-primary" id="playBtn">▶ Spill av</button>
+        <button class="btn-secondary" id="restartBtn">⟲ Start på nytt</button>
+        <div class="speed">
+          Fart
+          <select id="speedSel">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="side">
+      <h2>Posisjoner</h2>
+      <ul class="legend">
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>MV</b> målvakt</li>
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>VK</b> venstre kant</li>
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>VB</b> venstre back</li>
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>MB</b> midtback</li>
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>HB</b> høyre back</li>
+        <li><span class="swatch" style="background:#FFFFFF"></span><b>HK</b> høyre kant</li>
+        <li><span class="swatch" style="background:#000000"></span><b>1</b> kantforsvar</li>
+        <li><span class="swatch" style="background:#000000"></span><b>2</b> sideback-forsvar</li>
+        <li><span class="swatch" style="background:#000000"></span><b>3</b> midtforsvar</li>
+      </ul>
+
+      <h2>Trekket steg for steg</h2>
+      <ol class="steps" id="stepsList">
+        <li data-range="0,0.8">VK sentrer til VB.</li>
+        <li data-range="0.8,2.6">VB tar pådrag mot tomrommet mellom 2'er og 3'er forsvar, og drar med seg begge forsvarere.</li>
+        <li data-range="0.8,3.8">MB løper bak VB i en stor bue mot rommet mellom 2'er og 1'er forsvar.</li>
+        <li data-range="2.6,2.9">VB sentrer til MB.</li>
+        <li data-range="3.8,4.5">MB skyter på mål mellom 2'er og 1'er forsvar. MB har vurderingsmulighet: enten skyte på mål, eller spille videre til kantspiller dersom 1'er forsvar lukker rommet.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('court');
+const ctx = canvas.getContext('2d');
+
+const PPM = 42;
+const originX = canvas.width/2;
+const originY = 55;
+function m2p(x,y){ return [originX + x*PPM, originY + y*PPM]; }
+
+function ease(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+function interp(kf, t){
+  if(t<=kf[0].t) return {x:kf[0].x, y:kf[0].y};
+  if(t>=kf[kf.length-1].t) return {x:kf[kf.length-1].x, y:kf[kf.length-1].y};
+  for(let i=0;i<kf.length-1;i++){
+    const a=kf[i], b=kf[i+1];
+    if(t>=a.t && t<=b.t){
+      const p = b.t===a.t ? 1 : ease((t-a.t)/(b.t-a.t));
+      return {x:a.x+(b.x-a.x)*p, y:a.y+(b.y-a.y)*p};
+    }
+  }
+  return {x:kf[kf.length-1].x, y:kf[kf.length-1].y};
+}
+
+const GK = {x:0, y:-0.3};
+
+// defenders: ball-oriented, base ~8m. 1=kant, 2=sideback, 3=midt
+const defenderBase = [
+  {id:'1', x:-6, wing:true,  side:-1},
+  {id:'2', x:-3, wing:false, side:-1},
+  {id:'3', x:0,  wing:false, side:0},
+  {id:'2', x:3,  wing:false, side:1},
+  {id:'1', x:6,  wing:true,  side:1}
+];
+
+function defenderPos(base, ballX){
+  const dist = Math.abs(base.x - ballX);
+  const closeFrac = Math.max(0, Math.min(1, 1 - dist/6));
+
+  let effX = base.x;
+  let extraPress = 0;
+
+  if(base.wing){
+    const nudge = Math.max(-0.6, Math.min(0.6, ballX*0.05));
+    effX = base.x + nudge;
+    extraPress = closeFrac*0.5;
+  } else if(base.x===0){
+    effX = base.x + Math.max(-1.2, Math.min(1.2, ballX*0.1));
+    extraPress = closeFrac*1.0;
+  } else {
+    const targetX = Math.max(-8, Math.min(8, ballX));
+    effX = base.x + closeFrac*(targetX-base.x)*0.9;
+    extraPress = closeFrac*1.9;
+  }
+
+  const radius = 8.0 - extraPress;
+  const y = Math.sqrt(Math.max(0, radius*radius - effX*effX));
+  return {x:effX, y:y};
+}
+
+// ---------- attackers ----------
+const HK = {id:'HK', kf:[{t:0,x:9,y:1.6},{t:99,x:9,y:1.6}]};
+const HB = {id:'HB', kf:[{t:0,x:8,y:9},{t:99,x:8,y:9}]};
+
+const VK = {id:'VK', kf:[
+  {t:0,x:-9,y:1.6},
+  {t:0.4,x:-9,y:1.6},
+  {t:99,x:-9,y:1.6}
+]};
+
+const VB = {id:'VB', kf:[
+  {t:0,x:-8,y:9},
+  {t:0.4,x:-8,y:9},
+  {t:2.6,x:-1.5,y:7.0},
+  {t:99,x:-1.5,y:7.0}
+]};
+
+const MB = {id:'MB', kf:[
+  {t:0,x:0,y:12.5},
+  {t:0.8,x:0,y:12.5},
+  {t:1.8,x:-4.5,y:10.5},
+  {t:2.6,x:-6.0,y:7.8},
+  {t:3.4,x:-5.2,y:5.8},
+  {t:3.8,x:-4.5,y:4.5},
+  {t:4.2,x:-4.5,y:4.5},
+  {t:99,x:-4.5,y:4.5}
+]};
+
+const phases = [
+  {t0:0,t1:0.8, text:"VK sentrer til VB"},
+  {t0:0.8,t1:2.6, text:"VB tar pådrag mot rommet mellom 2'er og 3'er - MB løper enda større bue bak"},
+  {t0:2.6,t1:2.9, text:"VB sentrer til MB"},
+  {t0:2.9,t1:3.8, text:"MB løper buen mot rommet mellom 2'er og 1'er"},
+  {t0:3.8,t1:99, text:"MB skyter fra 6m mellom 2'er og 1'er forsvar"}
+];
+
+const SHOT = {t0:4.2,t1:4.5, from:{x:-4.5,y:4.5}, to:{x:-0.4,y:-0.3}};
+const END = 4.8;
+
+function ballPosAt(t){
+  if(t<0.4) return interp(VK.kf, t);
+  if(t<0.8){
+    const from=interp(VK.kf,0.4), to=interp(VB.kf,0.8);
+    const p=ease((t-0.4)/0.4);
+    return {x:from.x+(to.x-from.x)*p, y:from.y+(to.y-from.y)*p};
+  }
+  if(t<2.6) return interp(VB.kf, t);
+  if(t<2.9){
+    const from=interp(VB.kf,2.6), to=interp(MB.kf,2.9);
+    const p=ease((t-2.6)/0.3);
+    return {x:from.x+(to.x-from.x)*p, y:from.y+(to.y-from.y)*p};
+  }
+  if(t<SHOT.t0) return interp(MB.kf, t);
+  if(t<SHOT.t1){
+    const p=ease((t-SHOT.t0)/(SHOT.t1-SHOT.t0));
+    return {x:SHOT.from.x+(SHOT.to.x-SHOT.from.x)*p, y:SHOT.from.y+(SHOT.to.y-SHOT.from.y)*p};
+  }
+  return SHOT.to;
+}
+
+// Glattet ("forsinket") ball-x som forsvaret reagerer på - roligere bevegelse
+function smoothedBallX(t){
+  const window = 0.7;
+  const samples = 8;
+  let sum = 0;
+  for(let i=0;i<samples;i++){
+    const st = Math.max(0, t - (window*i)/(samples-1));
+    sum += ballPosAt(st).x;
+  }
+  return sum/samples;
+}
+
+function drawCourt(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+  grad.addColorStop(0,'#2E6DA4');
+  grad.addColorStop(1,'#163B5C');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<canvas.width;i+=28){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3;
+
+  let [gx1,gy1] = m2p(-10,0);
+  let [gx2,gy2] = m2p(10,0);
+  ctx.beginPath(); ctx.moveTo(gx1,gy1); ctx.lineTo(gx2,gy2); ctx.stroke();
+
+  ctx.beginPath();
+  let [s1x,s1y]=m2p(-10,0), [s1bx,s1by]=m2p(-10,13.5);
+  ctx.moveTo(s1x,s1y); ctx.lineTo(s1bx,s1by);
+  let [s2x,s2y]=m2p(10,0), [s2bx,s2by]=m2p(10,13.5);
+  ctx.moveTo(s2x,s2y); ctx.lineTo(s2bx,s2by);
+  ctx.stroke();
+
+  ctx.beginPath();
+  for(let x=-6.5;x<=6.5;x+=0.15){
+    const y = Math.min(6.4, Math.sqrt(Math.max(0,36-x*x)));
+    const [px,py]=m2p(x, x<-6||x>6?0:y);
+    if(x===-6.5) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  ctx.save();
+  ctx.setLineDash([8,8]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath();
+  const [p1x,p1y] = m2p(-10,2.5);
+  const [c1x,c1y] = m2p(-10,9);
+  const [apx,apy] = m2p(0,9);
+  const [c2x,c2y] = m2p(10,9);
+  const [p2x,p2y] = m2p(10,2.5);
+  ctx.moveTo(p1x,p1y);
+  ctx.quadraticCurveTo(c1x,c1y,apx,apy);
+  ctx.quadraticCurveTo(c2x,c2y,p2x,p2y);
+  ctx.stroke();
+  ctx.restore();
+
+  const [gpx1,gpy1] = m2p(-1.5,0);
+  const [gpx2,gpy2] = m2p(1.5,-1.1);
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(gpx1, gpy2, gpx2-gpx1, gpy1-gpy2);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+  ctx.strokeRect(gpx1, gpy2, gpx2-gpx1, gpy1-gpy2);
+}
+
+function drawPlayerCircle(x,y,fill,stroke,textColor,label,r){
+  const [px,py]=m2p(x,y);
+  ctx.beginPath();
+  ctx.arc(px,py,r||16,0,Math.PI*2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth=2.5;
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 12px Oswald, sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(label, px, py+1);
+}
+
+function drawBall(x,y){
+  const [px,py]=m2p(x,y);
+  ctx.beginPath();
+  ctx.arc(px,py,7,0,Math.PI*2);
+  ctx.fillStyle = '#F2C94C';
+  ctx.fill();
+  ctx.lineWidth=1.5;
+  ctx.strokeStyle = '#8C6A12';
+  ctx.stroke();
+}
+
+let playing = false;
+let startPerf = null;
+let pausedAt = 0;
+let speed = 1;
+let finished = false;
+
+const phaseTextEl = document.getElementById('phaseText');
+const phaseTimeEl = document.getElementById('phaseTime');
+const stepsItems = document.querySelectorAll('#stepsList li');
+const playBtn = document.getElementById('playBtn');
+
+function currentTime(){
+  if(!playing) return pausedAt;
+  const now = performance.now();
+  return pausedAt + (now-startPerf)/1000*speed;
+}
+
+function updatePhaseUI(t){
+  let text = phases[phases.length-1].text;
+  for(const p of phases){ if(t>=p.t0 && t<p.t1){ text=p.text; break; } }
+  phaseTextEl.textContent = text;
+  phaseTimeEl.textContent = Math.min(t,END).toFixed(1)+'s';
+
+  stepsItems.forEach(li=>{
+    const [r0,r1] = li.dataset.range.split(',').map(Number);
+    li.classList.toggle('active', t>=r0 && t<=r1+0.05);
+  });
+}
+
+function render(){
+  const t = currentTime();
+  const ballPos = ballPosAt(t);
+  const defBallX = smoothedBallX(Math.min(t,2.6));
+
+  drawCourt();
+
+  drawPlayerCircle(GK.x,GK.y,'#F2A65A','#8C5A22','#241605','MV',14);
+
+  defenderBase.forEach(d=>{
+    const p = defenderPos(d, defBallX);
+    drawPlayerCircle(p.x,p.y,'#141414','#3A3A3A','#FFFFFF',d.id,16);
+  });
+
+  {
+    const p = interp(VK.kf, t);
+    drawPlayerCircle(p.x,p.y,'#FFFFFF','#1B2A4A','#1B2A4A','VK',16);
+  }
+  {
+    const p = interp(VB.kf, t);
+    drawPlayerCircle(p.x,p.y,'#FFFFFF','#1B2A4A','#1B2A4A','VB',16);
+  }
+  {
+    const p = interp(HB.kf, t);
+    drawPlayerCircle(p.x,p.y,'#FFFFFF','#1B2A4A','#1B2A4A','HB',16);
+  }
+  {
+    const p = interp(MB.kf, t);
+    drawPlayerCircle(p.x,p.y,'#FFFFFF','#1B2A4A','#1B2A4A','MB',16);
+  }
+  {
+    const p = interp(HK.kf, t);
+    drawPlayerCircle(p.x,p.y,'#FFFFFF','#1B2A4A','#1B2A4A','HK',16);
+  }
+
+  drawBall(ballPos.x, ballPos.y);
+
+  updatePhaseUI(t);
+
+  if(t>=END){
+    playing = false;
+    finished = true;
+    pausedAt = END;
+    playBtn.textContent = '▶ Spill av';
+  }
+
+  if(playing) requestAnimationFrame(render);
+}
+
+function play(){
+  if(finished) return;
+  playing = true;
+  startPerf = performance.now();
+  playBtn.textContent = '⏸ Pause';
+  requestAnimationFrame(render);
+}
+function pause(){
+  pausedAt = currentTime();
+  playing = false;
+  playBtn.textContent = '▶ Spill av';
+}
+
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  if(playing) pause(); else play();
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  playing=false; pausedAt=0; finished=false;
+  playBtn.textContent = '▶ Spill av';
+  render();
+});
+document.getElementById('speedSel').addEventListener('change', e=>{
+  pausedAt = currentTime();
+  startPerf = performance.now();
+  speed = parseFloat(e.target.value);
+});
+
+render();
+</script>
+</body>
+</html>
